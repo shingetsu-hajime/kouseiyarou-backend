@@ -9,7 +9,48 @@ import torch
 torch.backends.quantized.engine = 'qnnpack'
 from transformers import BertJapaneseTokenizer
 import pytorch_lightning as pl
+import requests
 
+def download_file_from_dropbox(url, local_path):
+    if not os.path.exists(local_path):
+        print(f"{local_path} does not exist. Downloading from Dropbox...")
+        response = requests.get(url, stream=True)
+        if response.status_code == 200:
+            with open(local_path, 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(f"File downloaded successfully to {local_path}")
+        else:
+            print(f"Failed to download file from {url}. Status code: {response.status_code}")
+    else:
+        print(f"{local_path} already exists. Skipping download.")
+
+# Dropboxの共有リンクとローカルのパスのマッピング
+files_to_download = [
+    {
+        "url": "https://www.dropbox.com/scl/fi/z1219662co6y3nmlniw24/model.pth?rlkey=ipniad8nmj2m3dohq922ldy3p&st=8hi06a07&dl=1",
+        "local_path": "models/quantize_kouseiyarou_20240721/model.pth"
+    },
+    {
+        "url": "https://www.dropbox.com/scl/fi/pwwub8a9md4q0of5756pj/special_tokens_map.json?rlkey=splxk20i6emjrts62kksdzqo0&st=bmuq0cdd&dl=1",
+        "local_path": "models/quantize_kouseiyarou_20240721/special_tokens_map.json"
+    },
+    {
+        "url": "https://www.dropbox.com/scl/fi/y02qoqv6aqf4aaj5qg3kx/tokenizer_config.json?rlkey=e7o4ejs1mrbjex22jsyklbk9y&st=4buiu0a0&dl=1",
+        "local_path": "models/quantize_kouseiyarou_20240721/tokenizer_config.json"
+    },
+    {
+        "url": "https://www.dropbox.com/scl/fi/zqlpx0vvgp4qup1edf58r/vocab.txt?rlkey=zfnzl8sjqj6civgdpiyozvqlu&st=f920oxxw&dl=1",
+        "local_path": "models/quantize_kouseiyarou_20240721/vocab.txt"
+    }
+]
+
+os.makedirs('models',exist_ok=True)
+os.makedirs('models/quantize_kouseiyarou_20240721',exist_ok=True)
+
+# ファイルをダウンロード
+for file_info in files_to_download:
+    download_file_from_dropbox(file_info["url"], file_info["local_path"])
 
 class BertForMaskedLM_pl(pl.LightningModule):   
     def __init__(self):
@@ -31,23 +72,6 @@ class Analyzer():
         self.bert_mlm = model.bert_mlm
         del model
         self.tagger = Tagger('-Owakati')
-    
-    def load_model(self):
-        # Custom Unpickler
-        import pickle
-
-        class CustomUnpickler(pickle.Unpickler):
-            def find_class(self, module, name):
-                if name == 'BertForMaskedLM_pl':
-                    return BertForMaskedLM_pl
-                return super().find_class(module, name)
-
-        def custom_load(file):
-            with open(file, 'rb') as f:
-                unpickler = CustomUnpickler(f)
-                return unpickler.load()
-
-        return custom_load(self.best_model_path)
 
     def get_diff_hl(self, origin, correct):
         """
