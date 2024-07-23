@@ -107,7 +107,7 @@ class Analyzer():
             if word_node.surface in self.sentence_end_marks:
                 texts.append(sentence)
                 sentence = ""
-            elif wi == len(word_nodes)-1:
+            elif wi == len(word_nodes)-1 and sentence != '</p>':
                 # 最後に。がついていない場合はつけて追加
                 texts.append(sentence+'。')
 
